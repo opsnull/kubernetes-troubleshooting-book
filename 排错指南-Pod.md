@@ -42,7 +42,7 @@ Pending 状态说明 Pod 还没有调度到某个 Node 上面。可以通过 `ku
 
     **案例**：
     
-    1. 创建的 Pod 一直处于 Pending 状态，kubectl describe pods 显示 `No nodes are available that match all of the predicates: Insufficient pods (3).`
+    1. 创建的 Pod 一直处于 Pending 状态，kubectl describe pods 显示 `No nodes are available that match all of the predicates: Insufficient pods (3).`
 
     原因：
 
@@ -463,7 +463,7 @@ journalctl -u docker
 1. 升级 docker-ce 到 17.12.1 及以上版本；
 1. 升级操作系统内核到 4.4.x;
 
-参考：
+参考：
 
 + https://github.com/moby/moby/issues/22260
 + https://github.com/kubernetes/kubernetes/issues/65110
@@ -520,23 +520,3 @@ Kubelet 使用 inotify 机制检测 /etc/kubernetes/manifests 目录（可通过
 
 + [Troubleshoot Applications](https://kubernetes.io/docs/tasks/debug-application-cluster/debug-application/)
 + [Pod 异常排错](https://feisky.gitbooks.io/kubernetes/zh/troubleshooting/pod.html)
-
-
-[root@m7-power-k8s01 ~]# kubectl get nodes
-NAME             STATUS     ROLES     AGE       VERSION
-m7-power-k8s01   NotReady   <none>    22d       v1.8.15
-
-[root@m7-power-k8s01 ~]# journalctl -u docker 
-
-9月 05 17:34:04 m7-power-k8s01 dockerd[20711]: time="2018-09-05T17:34:04.029327579+08:00" level=debug msg="Calling GET /v1.31/containers/json?filters=%7B%22label%22%3A%7B%22io.kubernetes.docker.type%3Dpodsandbox%22%3Atrue%7D%7D&limit=0"
-9月 05 17:34:04 m7-power-k8s01 dockerd[20711]: time="2018-09-05T17:34:04.137261627+08:00" level=debug msg="Calling GET /v1.31/containers/json?all=1&filters=%7B%22label%22%3A%7B%22io.kubernetes.docker.type%3Dcontainer%22%3Atrue%7D%2C%22status%22%3A%7B%22running%22%3Atrue%7D%7D&limit=0"
-9月 05 17:38:55 m7-power-k8s01 dockerd[20711]: http: multiple response.WriteHeader calls
-
-
-Conditions:
-  Type             Status    LastHeartbeatTime                 LastTransitionTime                Reason                     Message
-  ----             ------    -----------------                 ------------------                ------                     -------
-  OutOfDisk        False     Wed, 05 Sep 2018 17:38:47 +0800   Mon, 13 Aug 2018 21:38:34 +0800   KubeletHasSufficientDisk   kubelet has sufficient disk space available
-  MemoryPressure   Unknown   Wed, 05 Sep 2018 17:38:47 +0800   Wed, 05 Sep 2018 17:39:29 +0800   NodeStatusUnknown          Kubelet stopped posting node status.
-  DiskPressure     Unknown   Wed, 05 Sep 2018 17:38:47 +0800   Wed, 05 Sep 2018 17:39:29 +0800   NodeStatusUnknown          Kubelet stopped posting node status.
-  Ready            Unknown   Wed, 05 Sep 2018 17:38:47 +0800   Wed, 05 Sep 2018 17:39:29 +0800   NodeStatusUnknown          Kubelet stopped posting node status.
