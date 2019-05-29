@@ -160,14 +160,18 @@ Pending 状态说明 Pod 还没有调度到某个 Node 上面。可以通过 `ku
 
     使用命令 `docker images |grep pod-infra` 确认节点 kubelet 参数 `--pod-infra-container-image` 对应的镜像，如 `registry.access.redhat.com/rhel7/pod-infrastructure:latest` 是否存在。如果不存在则手动拉取到节点（可能需要先登录 registry）。
 
-1. Pod yaml 定义中请求的 CPU、Memory 太小，不足以成功运行 Sandbox。
+1. Pod yaml 定义中请求的 CPU、Memory 太小或者**单位不对**，不足以成功运行 Sandbox。
 
-    常见的错误是：Pod yaml 定义 request 或 limit Memory 值是**不带单位**（如 Gi, Mi, Ki 等）的数值，如 4，这时只分配和限制使用 4 bytes。
+    常见的错误是：
+    1. Pod yaml 定义 request 或 limit Memory 值是**不带单位**（如 Gi, Mi, Ki 等）的数值，如 4，这时只分配和限制使用 4 bytes。
+    2. 内存单位 M 写成了小写 m，如 1024m，表示 1.024 Byte；
     
     `kubectl descirbe pod` 显示：
+
         Pod sandbox changed, it will be killed and re-created。
     
     kubelet 日志报错: 
+
         to start sandbox container for pod ... Error response from daemon: OCI runtime create failed: container_linux.go:348: starting container process caused "process_linux.go:301: running exec setns process for init caused \"signal: killed\"": unknown
 
 1. 拉取镜像失败：
@@ -213,9 +217,7 @@ Pending 状态说明 Pod 还没有调度到某个 Node 上面。可以通过 `ku
         
         Failed to pull image "docker02:35000/env/release/3.2.0/prophet/app/executor-service-kube.tar:release-3.2.0-8": rpc error: code = Unknown desc = error pulling image configuration: unknown blob
 
-1. kubelet 的 --registry-qps、--registry-burst 值太小（默认分别为 5，10)，并发拉取镜像时被限制：
-
-    被并发限制时，kubectl describe pod 报错：
+1. kubelet 的 --registry-qps、--registry-burst 值太小（默认分别为 5，10)，并发拉取镜像时被限制，kubectl describe pod 报错：
     
         Failed to pull image "172.27.129.211:35000/metricbeat-prophet:6.0.1": pull QPS exceeded，这时，可以调大这两个参数，然后重启 kubelet 解决。
 
@@ -385,7 +387,7 @@ journalctl -u kubelet
 journalctl -u docker
 ```
 
-**案例**：
+**案例一**：
 
 1. Pod 启动失败，kubectl get pods 显示状态为 CrashLoopBackOff，kubectl describe pods 显示错误信息：read-only file system error
 
@@ -421,6 +423,31 @@ journalctl -u docker
 
 1. 删除节点上所有使用损坏 image 的容器，然后删除 image，再重新 pull image；
 1. 确认 registry 中的 image 文件是否完整，不完整时重新 push image；
+
+**案例二**:
+
+现象：
+
+1. Pod 启动失败，kubectl get pods 显示状态为 CrashLoopBackOff：
+    
+    ``` bash
+    $ kubectl get pods -n metricbeat  -o wide |grep  m7-power-128050
+    metricbeat-995dcffbd-6rppf            0/1       CrashLoopBackOff   1142       9d        172.30.168.11    m7-power-128050
+    ```
+1. kubectl describe pods 显示 docker 将 pod 的 kubelet 目录 mount 到容器目录中时提示 no such file or directory：
+
+    ``` bash
+    $ kubectl describe pods -n metricbeat metricbeat-995dcffbd-6rppf | tail -10
+    Warning  Failed                 4d                    kubelet, m7-power-128050  Error: failed to start container "metricbeat": Error response from daemon: OCI runtime create failed: container_linux.go:348: starting container process caused "process_linux.go:402: container init caused \"rootfs_linux.go:58: mounting \\\"/mnt/disk2/k8s/kubelet/pods/54d426d3-cacd-11e8-971a-5e384b278319/volume-subpaths/config/metricbeat/0\\\" to rootfs \\\"/mnt/disk1/docker/data/overlay2/5753fb64509f490968802fe00a6a6e000b7f17f4839d62ba5ca1dc484c86ba22/merged\\\" at \\\"/mnt/disk1/docker/data/overlay2/5753fb64509f490968802fe00a6a6e000b7f17f4839d62ba5ca1dc484c86ba22/merged/etc/metricbeat.yml\\\" caused \\\"no such file or directory\\\"\"": unknown
+    Warning  Failed                 4d                    kubelet, m7-power-128050  Error: failed to start container "metricbeat": Error response from daemon: OCI runtime create failed: container_linux.go:348: 
+    Normal   Pulled                 43m (x1135 over 9d)   kubelet, m7-power-128050  Container image "docker.elastic.co/beats/metricbeat:6.4.1" already present on machine
+    Warning  FailedSync             23m (x26664 over 4d)  kubelet, m7-power-128050  Error syncing pod
+    Warning  BackOff                3m (x25616 over 4d)   kubelet, m7-power-128050  Back-off restarting failed container
+    ```
+
+原因：容器已经挂了，但是 kubelet 还不知晓，导致 kubelet 将 pod 目录挂载到容器目录时，容器目录不存在。
+
+解决办法：删除 pod，然后自动重建。
 
 ## Pod 一直处于 Error 状态
 
